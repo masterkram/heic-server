@@ -1,17 +1,18 @@
 import convert from 'heic-convert';
 
 export default defineEventHandler(async (event) => {
-  const multipart = await readMultipartFormData(event);
-
-  if (!multipart || multipart.length === 0 || !multipart[0].data) {
+  // Read the raw request body, which should be the HEIC file buffer
+  const inputBuffer = await readRawBody(event, false);
+  console.log(inputBuffer);
+  const blob = new Blob([inputBuffer]);
+  console.log(blob);
+  const arrayBuffer = await blob.arrayBuffer();
+  if (!inputBuffer || inputBuffer.length === 0) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Bad Request: No file or empty file uploaded.',
+      statusMessage: 'Bad Request: No image data received.',
     });
   }
-
-  const heicFile = multipart[0];
-  const inputBuffer = heicFile.data;
 
   try {
     const outputBuffer = await convert({
@@ -21,11 +22,7 @@ export default defineEventHandler(async (event) => {
     });
 
     setResponseHeader(event, 'Content-Type', 'image/jpeg');
-
-    if (heicFile.filename) {
-      const jpegFilename = heicFile.filename.replace(/\.(heic|heif)$/i, '.jpeg');
-      setResponseHeader(event, 'Content-Disposition', `attachment; filename="${jpegFilename}"`);
-    }
+    setResponseHeader(event, 'Content-Disposition', 'inline; filename="converted.jpeg"');
 
     return outputBuffer;
   } catch (error) {
